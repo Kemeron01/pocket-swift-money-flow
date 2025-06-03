@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,17 +26,41 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Plus,
-  Minus
+  Minus,
+  QrCode,
+  Users,
+  Smartphone,
+  Building2,
+  Gift,
+  Share2,
+  Camera,
+  UserPlus,
+  Zap,
+  Shield,
+  Star,
+  Heart,
+  MessageCircle,
+  Lock,
+  Globe
 } from 'lucide-react';
 
 // Mock data and types
 interface Transaction {
   id: number;
   date: string;
-  type: 'credit' | 'debit';
+  type: 'credit' | 'debit' | 'request' | 'split' | 'laisee';
   amount: number;
   description: string;
   category: string;
+  recipient?: string;
+  sender?: string;
+  status?: 'completed' | 'pending' | 'requested';
+  social?: {
+    message?: string;
+    visibility: 'friends' | 'private';
+    likes?: number;
+    comments?: number;
+  };
 }
 
 interface Account {
@@ -68,6 +91,36 @@ interface AppSettings {
   biometricLogin: boolean;
   showBalance: boolean;
   showRecentTransactions: boolean;
+  autoTopUp: boolean;
+  autoTopUpThreshold: number;
+  socialVisibility: 'friends' | 'private';
+}
+
+interface Contact {
+  id: number;
+  name: string;
+  phone: string;
+  avatar: string;
+  isFrequent: boolean;
+}
+
+interface Business {
+  id: number;
+  name: string;
+  category: string;
+  payCode: string;
+  location: string;
+  offers?: string;
+}
+
+interface SplitBill {
+  id: number;
+  title: string;
+  totalAmount: number;
+  participants: string[];
+  createdBy: string;
+  status: 'active' | 'completed';
+  payments: { participant: string; amount: number; paid: boolean }[];
 }
 
 interface MockData {
@@ -75,6 +128,9 @@ interface MockData {
   accounts: Account[];
   transactions: Transaction[];
   payees: Payee[];
+  contacts: Contact[];
+  businesses: Business[];
+  splitBills: SplitBill[];
   settings: AppSettings;
 }
 
@@ -95,15 +151,42 @@ const initialMockData: MockData = {
     { id: 1, date: "2024-06-03", type: "credit", amount: 2500.00, description: "Salary Deposit", category: "Income" },
     { id: 2, date: "2024-06-02", type: "debit", amount: 89.32, description: "Grocery Store", category: "Food" },
     { id: 3, date: "2024-06-01", type: "debit", amount: 1200.00, description: "Rent Payment", category: "Bills" },
-    { id: 4, date: "2024-05-31", type: "debit", amount: 45.67, description: "Gas Station", category: "Transportation" },
-    { id: 5, date: "2024-05-30", type: "credit", amount: 150.00, description: "Cashback Reward", category: "Income" },
-    { id: 6, date: "2024-05-29", type: "debit", amount: 234.56, description: "Online Shopping", category: "Shopping" },
-    { id: 7, date: "2024-05-28", type: "debit", amount: 67.89, description: "Restaurant", category: "Food" }
+    { id: 4, date: "2024-05-31", type: "credit", amount: 50.00, description: "P2P from Mike", category: "P2P", sender: "Mike Chen", social: { message: "Thanks for dinner! 🍕", visibility: "friends", likes: 3 } },
+    { id: 5, date: "2024-05-30", type: "debit", amount: 25.00, description: "Split Bill - Coffee", category: "Split", social: { message: "Great coffee meetup!", visibility: "friends", likes: 5, comments: 2 } },
+    { id: 6, date: "2024-05-29", type: "laisee", amount: 88.00, description: "Red Envelope from Aunt", category: "Laisee", social: { message: "Happy Birthday! 🧧", visibility: "friends", likes: 12 } },
+    { id: 7, date: "2024-05-28", type: "debit", amount: 67.89, description: "Starbucks - PayCode", category: "Business" }
   ],
   payees: [
     { id: 1, name: "Electric Company", accountNumber: "12345" },
     { id: 2, name: "Water Department", accountNumber: "67890" },
     { id: 3, name: "Internet Provider", accountNumber: "54321" }
+  ],
+  contacts: [
+    { id: 1, name: "Mike Chen", phone: "+852 9876 5432", avatar: "👨‍💼", isFrequent: true },
+    { id: 2, name: "Emily Wong", phone: "+852 8765 4321", avatar: "👩‍🎨", isFrequent: true },
+    { id: 3, name: "David Lee", phone: "+852 7654 3210", avatar: "👨‍💻", isFrequent: false },
+    { id: 4, name: "Lisa Zhang", phone: "+852 6543 2109", avatar: "👩‍🔬", isFrequent: true }
+  ],
+  businesses: [
+    { id: 1, name: "Starbucks Central", category: "Coffee", payCode: "SB001", location: "Central", offers: "10% off with PayMe" },
+    { id: 2, name: "McDonald's TST", category: "Fast Food", payCode: "MC002", location: "Tsim Sha Tsui" },
+    { id: 3, name: "7-Eleven Causeway Bay", category: "Convenience", payCode: "711003", location: "Causeway Bay", offers: "Buy 2 Get 1 Free" }
+  ],
+  splitBills: [
+    {
+      id: 1,
+      title: "Dinner at Italian Restaurant",
+      totalAmount: 480.00,
+      participants: ["Sarah Johnson", "Mike Chen", "Emily Wong", "David Lee"],
+      createdBy: "Sarah Johnson",
+      status: "active",
+      payments: [
+        { participant: "Sarah Johnson", amount: 120.00, paid: true },
+        { participant: "Mike Chen", amount: 120.00, paid: true },
+        { participant: "Emily Wong", amount: 120.00, paid: false },
+        { participant: "David Lee", amount: 120.00, paid: false }
+      ]
+    }
   ],
   settings: {
     darkMode: false,
@@ -111,7 +194,10 @@ const initialMockData: MockData = {
     notifications: true,
     biometricLogin: false,
     showBalance: true,
-    showRecentTransactions: true
+    showRecentTransactions: true,
+    autoTopUp: false,
+    autoTopUpThreshold: 100,
+    socialVisibility: 'friends'
   }
 };
 
@@ -164,6 +250,120 @@ class BankingService {
       success: true, 
       message: `Transfer of $${amount.toFixed(2)} to ${recipientName} completed successfully`,
       transaction
+    };
+  }
+
+  async p2pTransfer(recipientName: string, amount: number, message: string, type: string): Promise<{ success: boolean; message: string; transaction?: Transaction }> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    if (amount <= 0) {
+      return { success: false, message: "Amount must be positive" };
+    }
+    
+    if (type === 'send' && amount > this.data.accounts[0].balance) {
+      return { success: false, message: "Insufficient funds" };
+    }
+    
+    const transaction: Transaction = {
+      id: Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      type: type === 'request' ? 'request' : 'debit',
+      amount: amount,
+      description: `${type === 'send' ? 'Sent to' : type === 'request' ? 'Requested from' : 'Split with'} ${recipientName}`,
+      category: 'P2P',
+      recipient: recipientName,
+      status: type === 'request' ? 'pending' : 'completed',
+      social: {
+        message: message,
+        visibility: this.data.settings.socialVisibility || 'friends',
+        likes: 0
+      }
+    };
+    
+    if (type === 'send') {
+      this.data.accounts[0].balance -= amount;
+    }
+    
+    this.data.transactions.unshift(transaction);
+    this.save();
+    
+    return { 
+      success: true, 
+      message: `${type === 'send' ? 'Sent' : type === 'request' ? 'Requested' : 'Split created'} $${amount.toFixed(2)} ${type === 'send' ? 'to' : 'from'} ${recipientName}`,
+      transaction
+    };
+  }
+
+  async businessPayment(businessId: number, amount: number): Promise<{ success: boolean; message: string; transaction?: Transaction }> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const business = this.data.businesses.find(b => b.id === businessId);
+    if (!business) {
+      return { success: false, message: "Business not found" };
+    }
+    
+    if (amount <= 0) {
+      return { success: false, message: "Amount must be positive" };
+    }
+    
+    if (amount > this.data.accounts[0].balance) {
+      return { success: false, message: "Insufficient funds" };
+    }
+    
+    const transaction: Transaction = {
+      id: Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      type: 'debit',
+      amount: amount,
+      description: `${business.name} - PayCode`,
+      category: 'Business'
+    };
+    
+    this.data.accounts[0].balance -= amount;
+    this.data.transactions.unshift(transaction);
+    this.save();
+    
+    return { 
+      success: true, 
+      message: `Payment of $${amount.toFixed(2)} to ${business.name} completed successfully`,
+      transaction
+    };
+  }
+
+  async sendLaisee(recipients: Contact[], amount: number, message: string): Promise<{ success: boolean; message: string }> {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const totalAmount = amount * recipients.length;
+    
+    if (totalAmount > this.data.accounts[0].balance) {
+      return { success: false, message: "Insufficient funds" };
+    }
+    
+    recipients.forEach(recipient => {
+      const transaction: Transaction = {
+        id: Date.now() + Math.random(),
+        date: new Date().toISOString().split('T')[0],
+        type: 'laisee',
+        amount: amount,
+        description: `Red Envelope to ${recipient.name}`,
+        category: 'Laisee',
+        recipient: recipient.name,
+        social: {
+          message: message,
+          visibility: 'friends',
+          likes: 0
+        }
+      };
+      
+      this.data.transactions.unshift(transaction);
+    });
+    
+    this.data.accounts[0].balance -= totalAmount;
+    this.save();
+    
+    return { 
+      success: true, 
+      message: `Sent ${recipients.length} red envelope(s) for $${totalAmount.toFixed(2)}` 
     };
   }
 
@@ -229,34 +429,36 @@ class BankingService {
 
 // Dashboard Component
 const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: () => void }> = ({ data, service, onRefresh }) => {
-  const [showBalance, setShowBalance] = useState(true);
+  const [showBalance, setShowBalance] = useState(data.settings.showBalance);
   const totalBalance = data.accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  const spendingData = service.getSpendingByCategory();
   const recentTransactions = data.transactions.slice(0, 5);
 
   return (
     <div className="p-4 space-y-6 animate-in fade-in duration-300">
-      {/* Account Balance Card */}
-      <Card className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-        <CardContent className="p-6">
+      {/* Enhanced Balance Card */}
+      <Card className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
+        <CardContent className="p-6 relative">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Total Balance</h2>
+            <div>
+              <h2 className="text-lg font-semibold opacity-90">Total Balance</h2>
+              <div className="text-3xl font-bold">
+                {showBalance ? `$${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••'}
+              </div>
+            </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowBalance(!showBalance)}
-              className="text-white hover:bg-white/20"
-              aria-label={showBalance ? "Hide balance" : "Show balance"}
+              className="text-white hover:bg-white/20 rounded-full p-2"
             >
               {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
             </Button>
           </div>
-          <div className="text-3xl font-bold">
-            {showBalance ? `$${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••'}
-          </div>
-          <div className="flex gap-4 mt-4">
+          
+          <div className="grid grid-cols-2 gap-3 mt-4">
             {data.accounts.map(account => (
-              <div key={account.id} className="bg-white/20 rounded-lg p-3 flex-1">
+              <div key={account.id} className="bg-white/15 backdrop-blur-sm rounded-xl p-3">
                 <div className="text-sm opacity-90">{account.type}</div>
                 <div className="text-lg font-semibold">
                   {showBalance ? `$${account.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••'}
@@ -268,26 +470,91 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+      {/* Enhanced Quick Actions */}
+      <div className="grid grid-cols-4 gap-3">
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
           <CardContent className="p-4 text-center">
-            <Send className="mx-auto mb-2 text-blue-600" size={24} />
-            <div className="font-medium">Transfer</div>
-            <div className="text-sm text-gray-600">Send money</div>
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Send className="text-blue-600" size={20} />
+            </div>
+            <div className="text-sm font-medium">Send</div>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
           <CardContent className="p-4 text-center">
-            <CreditCard className="mx-auto mb-2 text-blue-600" size={24} />
-            <div className="font-medium">Pay Bills</div>
-            <div className="text-sm text-gray-600">Manage payments</div>
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <ArrowDownLeft className="text-green-600" size={20} />
+            </div>
+            <div className="text-sm font-medium">Request</div>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
+          <CardContent className="p-4 text-center">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <QrCode className="text-purple-600" size={20} />
+            </div>
+            <div className="text-sm font-medium">Scan</div>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
+          <CardContent className="p-4 text-center">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
+              <Users className="text-red-600" size={20} />
+            </div>
+            <div className="text-sm font-medium">Split</div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Social Activity Feed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Heart className="text-red-500" size={20} />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {data.transactions.filter(t => t.social).slice(0, 3).map(transaction => (
+              <div key={transaction.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  {transaction.type === 'laisee' ? '🧧' : 
+                   transaction.type === 'split' ? '🍕' : '💸'}
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-sm">{transaction.description}</div>
+                  <div className="text-xs text-gray-500">{transaction.social?.message}</div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                    <span className="flex items-center gap-1">
+                      <Heart size={12} /> {transaction.social?.likes || 0}
+                    </span>
+                    {transaction.social?.comments && (
+                      <span className="flex items-center gap-1">
+                        <MessageCircle size={12} /> {transaction.social.comments}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`font-semibold ${
+                    transaction.type === 'credit' || transaction.type === 'laisee' ? 'text-green-600' : 'text-gray-900'
+                  }`}>
+                    {transaction.type === 'credit' || transaction.type === 'laisee' ? '+' : ''}${transaction.amount.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-500">{transaction.date}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Spending Summary */}
-      {Object.keys(spendingData).length > 0 && (
+      {Object.keys(service.getSpendingByCategory()).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -297,7 +564,7 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {Object.entries(spendingData).slice(0, 4).map(([category, amount]) => (
+              {Object.entries(service.getSpendingByCategory()).slice(0, 4).map(([category, amount]) => (
                 <div key={category} className="flex justify-between items-center">
                   <span className="text-sm font-medium">{category}</span>
                   <span className="text-sm text-gray-600">${amount.toFixed(2)}</span>
@@ -348,6 +615,482 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+};
+
+// P2P Transfer Component
+const P2PTransfer: React.FC<{ data: MockData; service: BankingService; onSuccess: (message: string) => void; onError: (message: string) => void }> = ({ data, service, onSuccess, onError }) => {
+  const [recipient, setRecipient] = useState('');
+  const [amount, setAmount] = useState('');
+  const [message, setMessage] = useState('');
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [transferType, setTransferType] = useState('send'); // send, request, split
+
+  const frequentContacts = data.contacts.filter(c => c.isFrequent);
+
+  const handleTransfer = async () => {
+    setIsLoading(true);
+    try {
+      const recipientName = selectedContact ? selectedContact.name : recipient;
+      const result = await service.p2pTransfer(recipientName, parseFloat(amount), message, transferType);
+      if (result.success) {
+        onSuccess(result.message);
+        setRecipient('');
+        setAmount('');
+        setMessage('');
+        setSelectedContact(null);
+      } else {
+        onError(result.message);
+      }
+    } catch (error) {
+      onError("Transfer failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-6 animate-in fade-in duration-300">
+      {/* Transfer Type Selector */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex gap-2">
+            <Button
+              variant={transferType === 'send' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransferType('send')}
+              className="flex-1"
+            >
+              <Send size={16} className="mr-2" />
+              Send
+            </Button>
+            <Button
+              variant={transferType === 'request' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransferType('request')}
+              className="flex-1"
+            >
+              <ArrowDownLeft size={16} className="mr-2" />
+              Request
+            </Button>
+            <Button
+              variant={transferType === 'split' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransferType('split')}
+              className="flex-1"
+            >
+              <Users size={16} className="mr-2" />
+              Split
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Frequent Contacts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Frequent Contacts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-3">
+            {frequentContacts.map(contact => (
+              <div
+                key={contact.id}
+                onClick={() => setSelectedContact(contact)}
+                className={`text-center cursor-pointer p-3 rounded-lg transition-all ${
+                  selectedContact?.id === contact.id ? 'bg-blue-100 border-2 border-blue-500' : 'bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                <div className="text-2xl mb-1">{contact.avatar}</div>
+                <div className="text-xs font-medium truncate">{contact.name}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Transfer Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {transferType === 'send' ? <Send className="text-blue-600" size={20} /> :
+             transferType === 'request' ? <ArrowDownLeft className="text-green-600" size={20} /> :
+             <Users className="text-purple-600" size={20} />}
+            {transferType === 'send' ? 'Send Money' : 
+             transferType === 'request' ? 'Request Money' : 'Split Bill'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!selectedContact && (
+            <div>
+              <Label htmlFor="recipient">Recipient</Label>
+              <Input
+                id="recipient"
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                placeholder="Enter name or phone number"
+              />
+            </div>
+          )}
+
+          {selectedContact && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+              <div className="text-2xl">{selectedContact.avatar}</div>
+              <div>
+                <div className="font-medium">{selectedContact.name}</div>
+                <div className="text-sm text-gray-500">{selectedContact.phone}</div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedContact(null)}
+                className="ml-auto"
+              >
+                Change
+              </Button>
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="amount">Amount</Label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-3 text-gray-400" size={16} />
+              <Input
+                id="amount"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="message">Message (Optional)</Label>
+            <Input
+              id="message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="What's this for?"
+            />
+          </div>
+
+          <Button 
+            onClick={handleTransfer} 
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? "Processing..." : 
+             transferType === 'send' ? "Send Money" :
+             transferType === 'request' ? "Request Money" : "Create Split"}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Business Payments Component
+const BusinessPayments: React.FC<{ data: MockData; service: BankingService; onSuccess: (message: string) => void; onError: (message: string) => void }> = ({ data, service, onSuccess, onError }) => {
+  const [isScanning, setIsScanning] = useState(false);
+  const [payCode, setPayCode] = useState('');
+  const [amount, setAmount] = useState('');
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+
+  const handleScan = () => {
+    setIsScanning(true);
+    // Simulate QR code scanning
+    setTimeout(() => {
+      setIsScanning(false);
+      const randomBusiness = data.businesses[Math.floor(Math.random() * data.businesses.length)];
+      setSelectedBusiness(randomBusiness);
+      setPayCode(randomBusiness.payCode);
+      onSuccess(`Scanned ${randomBusiness.name} successfully!`);
+    }, 2000);
+  };
+
+  const handlePayment = async () => {
+    try {
+      const business = selectedBusiness || data.businesses.find(b => b.payCode === payCode);
+      if (!business) {
+        onError("Invalid PayCode");
+        return;
+      }
+      
+      const result = await service.businessPayment(business.id, parseFloat(amount));
+      if (result.success) {
+        onSuccess(result.message);
+        setAmount('');
+        setPayCode('');
+        setSelectedBusiness(null);
+      } else {
+        onError(result.message);
+      }
+    } catch (error) {
+      onError("Payment failed. Please try again.");
+    }
+  };
+
+  return (
+    <div className="p-4 space-y-6 animate-in fade-in duration-300">
+      {/* QR Scanner */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <QrCode className="text-blue-600" size={20} />
+            Pay with PayCode
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center">
+            <Button
+              onClick={handleScan}
+              disabled={isScanning}
+              className="w-full h-20"
+              variant={isScanning ? "outline" : "default"}
+            >
+              {isScanning ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                  Scanning...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Camera size={24} />
+                  Scan PayCode
+                </div>
+              )}
+            </Button>
+          </div>
+
+          <div className="text-center text-sm text-gray-500">or</div>
+
+          <div>
+            <Label htmlFor="paycode">Enter PayCode Manually</Label>
+            <Input
+              id="paycode"
+              value={payCode}
+              onChange={(e) => setPayCode(e.target.value)}
+              placeholder="Enter business PayCode"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Selected Business */}
+      {selectedBusiness && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Building2 className="text-green-600" size={20} />
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold">{selectedBusiness.name}</div>
+                <div className="text-sm text-gray-600">{selectedBusiness.location}</div>
+                {selectedBusiness.offers && (
+                  <div className="text-sm text-green-600 font-medium">
+                    🎁 {selectedBusiness.offers}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Form */}
+      {(selectedBusiness || payCode) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Payment Amount</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="amount">Amount</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-3 text-gray-400" size={16} />
+                <Input
+                  id="amount"
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            <Button 
+              onClick={handlePayment}
+              className="w-full"
+              disabled={!amount || parseFloat(amount) <= 0}
+            >
+              Pay Now
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Nearby Businesses */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="text-blue-600" size={20} />
+            Nearby Businesses
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {data.businesses.map(business => (
+              <div
+                key={business.id}
+                onClick={() => {
+                  setSelectedBusiness(business);
+                  setPayCode(business.payCode);
+                }}
+                className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+              >
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Building2 className="text-blue-600" size={16} />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium">{business.name}</div>
+                  <div className="text-sm text-gray-500">{business.category} • {business.location}</div>
+                  {business.offers && (
+                    <div className="text-sm text-green-600">🎁 {business.offers}</div>
+                  )}
+                </div>
+                <ChevronRight className="text-gray-400" size={16} />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Digital Red Envelope (Laisee) Component
+const DigitalLaisee: React.FC<{ data: MockData; service: BankingService; onSuccess: (message: string) => void; onError: (message: string) => void }> = ({ data, service, onSuccess, onError }) => {
+  const [amount, setAmount] = useState('');
+  const [message, setMessage] = useState('');
+  const [recipients, setRecipients] = useState<string[]>([]);
+  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
+
+  const handleSendLaisee = async () => {
+    try {
+      const result = await service.sendLaisee(selectedContacts, parseFloat(amount), message);
+      if (result.success) {
+        onSuccess(result.message);
+        setAmount('');
+        setMessage('');
+        setSelectedContacts([]);
+      } else {
+        onError(result.message);
+      }
+    } catch (error) {
+      onError("Failed to send red envelope. Please try again.");
+    }
+  };
+
+  const toggleContact = (contact: Contact) => {
+    setSelectedContacts(prev => 
+      prev.find(c => c.id === contact.id)
+        ? prev.filter(c => c.id !== contact.id)
+        : [...prev, contact]
+    );
+  };
+
+  return (
+    <div className="p-4 space-y-6 animate-in fade-in duration-300">
+      <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gift className="text-white" size={20} />
+            Send Digital Red Envelope
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center">
+            <div className="text-6xl mb-4">🧧</div>
+            <div className="text-lg opacity-90">Share your blessings</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <div>
+            <Label htmlFor="laisee-amount">Amount per envelope</Label>
+            <div className="relative">
+              <DollarSign className="absolute left-3 top-3 text-gray-400" size={16} />
+              <Input
+                id="laisee-amount"
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="88.00"
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="laisee-message">Blessing Message</Label>
+            <Input
+              id="laisee-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Wishing you prosperity and happiness!"
+            />
+          </div>
+
+          <div>
+            <Label>Select Recipients</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {data.contacts.map(contact => (
+                <div
+                  key={contact.id}
+                  onClick={() => toggleContact(contact)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                    selectedContacts.find(c => c.id === contact.id)
+                      ? 'border-red-500 bg-red-50'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="text-lg">{contact.avatar}</div>
+                    <div className="text-sm font-medium">{contact.name}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {selectedContacts.length > 0 && (
+            <div className="p-3 bg-red-50 rounded-lg">
+              <div className="text-sm font-medium text-red-800">
+                Total: ${(parseFloat(amount || '0') * selectedContacts.length).toFixed(2)}
+              </div>
+              <div className="text-xs text-red-600">
+                {selectedContacts.length} recipient(s) selected
+              </div>
+            </div>
+          )}
+
+          <Button 
+            onClick={handleSendLaisee}
+            className="w-full bg-red-600 hover:bg-red-700"
+            disabled={!amount || selectedContacts.length === 0}
+          >
+            Send Red Envelopes 🧧
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };
@@ -1098,6 +1841,12 @@ const BankingApp: React.FC = () => {
     switch (currentPage) {
       case 'dashboard':
         return <Dashboard data={data} service={serviceRef.current} onRefresh={() => setCurrentPage('history')} />;
+      case 'p2p':
+        return <P2PTransfer data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+      case 'business':
+        return <BusinessPayments data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+      case 'laisee':
+        return <DigitalLaisee data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'transfer':
         return <Transfer service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'history':
@@ -1126,23 +1875,33 @@ const BankingApp: React.FC = () => {
     );
   }
 
-  // Navigation items following Hick's Law (max 5 options)
+  // Enhanced navigation with P2P and business features
   const navigation = [
     { key: 'dashboard', label: 'Home', icon: Home },
-    { key: 'transfer', label: 'Transfer', icon: Send },
-    { key: 'history', label: 'History', icon: History },
-    { key: 'bills', label: 'Bills', icon: CreditCard },
+    { key: 'p2p', label: 'P2P', icon: Send },
+    { key: 'business', label: 'Pay', icon: QrCode },
+    { key: 'laisee', label: 'Laisee', icon: Gift },
     { key: 'more', label: 'More', icon: Settings },
   ];
 
   return (
     <div className={`min-h-screen ${data.settings.darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
-      {/* Header */}
-      <header className="bg-blue-600 text-white p-4 shadow-lg sticky top-0 z-10">
+      {/* Enhanced Header */}
+      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 shadow-lg sticky top-0 z-10">
         <div className="max-w-md mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold">SwiftBank</h1>
-          <div className="text-sm opacity-90">
-            Welcome, {data.user.name.split(' ')[0]}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+              <Smartphone className="text-white" size={16} />
+            </div>
+            <h1 className="text-xl font-bold">PayMe</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 p-2">
+              <Bell size={16} />
+            </Button>
+            <div className="text-sm opacity-90">
+              Hi, {data.user.name.split(' ')[0]}
+            </div>
           </div>
         </div>
       </header>
@@ -1152,26 +1911,23 @@ const BankingApp: React.FC = () => {
         {renderPage()}
       </main>
 
-      {/* Bottom Navigation - Following Fitts's Law with large touch targets */}
-      <nav 
-        className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg z-10" 
-        role="navigation" 
-        aria-label="Main navigation"
-      >
+      {/* Enhanced Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg backdrop-blur-lg bg-white/95" 
+           role="navigation" aria-label="Main navigation">
         <div className="max-w-md mx-auto flex">
           {navigation.map((item) => (
             <button
               key={item.key}
               onClick={() => setCurrentPage(item.key)}
-              className={`flex-1 p-3 text-center transition-colors duration-200 ${
+              className={`flex-1 p-3 text-center transition-all duration-200 ${
                 currentPage === item.key || 
                 (currentPage === 'settings' && item.key === 'more') || 
                 (currentPage === 'account' && item.key === 'more')
-                  ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' 
-                  : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                  ? 'text-blue-600 bg-blue-50 transform scale-105' 
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
               aria-label={`Navigate to ${item.label}`}
-              style={{ minHeight: '60px', minWidth: '44px' }} // Fitts's Law compliance
+              style={{ minHeight: '60px', minWidth: '44px' }}
             >
               <item.icon className="mx-auto mb-1" size={20} />
               <div className="text-xs font-medium">{item.label}</div>
