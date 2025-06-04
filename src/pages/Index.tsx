@@ -5,6 +5,12 @@ import Achievements from '../components/Achievements';
 import Dashboard from '../components/Dashboard';
 import MobileHeader from '../components/MobileHeader';
 import MobileNavigation from '../components/MobileNavigation';
+import SendMoney from '../components/SendMoney';
+import RequestMoney from '../components/RequestMoney';
+import SplitBill from '../components/SplitBill';
+import ScanQR from '../components/ScanQR';
+import TransactionHistory from '../components/TransactionHistory';
+import Settings from '../components/Settings';
 import { MockDataType, Transaction, Notification } from '../types';
 
 const BankingApp = () => {
@@ -45,8 +51,36 @@ const BankingApp = () => {
     { id: 3, message: 'New red envelope received', type: 'success', time: '2 hours ago' }
   ]);
 
-  const showNotificationMessage = (message: string, type = 'success') => {
-    toast[type as keyof typeof toast](message);
+  const showNotificationMessage = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    if (type === 'success') toast.success(message);
+    else if (type === 'error') toast.error(message);
+    else toast.info(message);
+  };
+
+  const handleSendMoney = (recipient: string, amount: number, message?: string) => {
+    if (amount > mockData.balance) {
+      showNotificationMessage('Insufficient balance', 'error');
+      return;
+    }
+
+    const newTransaction: Transaction = {
+      id: Date.now(),
+      type: 'send',
+      amount,
+      to: recipient,
+      date: new Date().toISOString().split('T')[0],
+      method: 'P2P',
+      message
+    };
+
+    setMockData(prev => ({
+      ...prev,
+      balance: prev.balance - amount,
+      recentTransactions: [newTransaction, ...prev.recentTransactions]
+    }));
+
+    showNotificationMessage(`Successfully sent $${amount} to ${recipient}`);
+    setCurrentView('dashboard');
   };
 
   const renderCurrentView = () => {
@@ -57,6 +91,45 @@ const BankingApp = () => {
             mockData={mockData}
             balanceVisible={balanceVisible}
             setBalanceVisible={setBalanceVisible}
+            setCurrentView={setCurrentView}
+          />
+        );
+      case 'send':
+        return (
+          <SendMoney 
+            friends={mockData.friends}
+            onSendMoney={handleSendMoney}
+            setCurrentView={setCurrentView}
+          />
+        );
+      case 'request':
+        return (
+          <RequestMoney 
+            friends={mockData.friends}
+            setCurrentView={setCurrentView}
+          />
+        );
+      case 'split':
+        return (
+          <SplitBill 
+            friends={mockData.friends}
+            setCurrentView={setCurrentView}
+          />
+        );
+      case 'scan':
+        return <ScanQR setCurrentView={setCurrentView} />;
+      case 'history':
+        return (
+          <TransactionHistory 
+            transactions={mockData.recentTransactions}
+            setCurrentView={setCurrentView}
+          />
+        );
+      case 'settings':
+        return (
+          <Settings 
+            mockData={mockData}
+            setMockData={setMockData}
             setCurrentView={setCurrentView}
           />
         );
@@ -85,7 +158,7 @@ const BankingApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col max-w-sm mx-auto relative">
       <MobileHeader 
         totalAchievementPoints={mockData.totalAchievementPoints || 0}
         notifications={notifications}
