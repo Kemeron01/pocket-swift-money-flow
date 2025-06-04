@@ -132,6 +132,13 @@ interface MockData {
   businesses: Business[];
   splitBills: SplitBill[];
   settings: AppSettings;
+  achievements?: {
+    id: number;
+    name: string;
+    description: string;
+    unlocked: boolean;
+    claimed: boolean;
+  }[];
 }
 
 // Initial mock data
@@ -428,13 +435,15 @@ class BankingService {
 }
 
 // Dashboard Component
-const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: () => void }> = ({ data, service, onRefresh }) => {
-  const [showBalance, setShowBalance] = useState(data.settings.showBalance);
-  const totalBalance = data.accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  const recentTransactions = data.transactions.slice(0, 5);
+const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentPage }) => {
+  const [showBalance, setShowBalance] = useState(mockData.settings.showBalance);
+  const totalBalance = mockData.accounts.reduce((sum, acc) => sum + acc.balance, 0);
+  const recentTransactions = mockData.transactions.slice(0, 5);
+
+  const unlockedAchievements = mockData.achievements?.filter(a => a.unlocked && !a.claimed).length || 0;
 
   return (
-    <div className="p-4 space-y-6 animate-in fade-in duration-300">
+    <div className="fade-in p-4 space-y-6">
       {/* Enhanced Balance Card */}
       <Card className="bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 text-white overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
@@ -457,7 +466,7 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
           </div>
           
           <div className="grid grid-cols-2 gap-3 mt-4">
-            {data.accounts.map(account => (
+            {mockData.accounts.map(account => (
               <div key={account.id} className="bg-white/15 backdrop-blur-sm rounded-xl p-3">
                 <div className="text-sm opacity-90">{account.type}</div>
                 <div className="text-lg font-semibold">
@@ -519,7 +528,7 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {data.transactions.filter(t => t.social).slice(0, 3).map(transaction => (
+            {mockData.transactions.filter(t => t.social).slice(0, 3).map(transaction => (
               <div key={transaction.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                   {transaction.type === 'laisee' ? '🧧' : 
@@ -576,7 +585,7 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
       )}
 
       {/* Recent Transactions */}
-      {data.settings.showRecentTransactions && (
+      {mockData.settings.showRecentTransactions && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
@@ -615,6 +624,31 @@ const Dashboard: React.FC<{ data: MockData; service: BankingService; onRefresh: 
           </CardContent>
         </Card>
       )}
+
+      {/* Quick Actions - Add achievements */}
+      <div className="grid grid-cols-2 gap-3">
+        <button 
+            onClick={() => setCurrentPage('transfer')}
+            className="bg-blue-600 text-white p-4 rounded-lg text-center hover:bg-blue-700 transition-colors scale-on-tap"
+            aria-label="Quick Transfer"
+        >
+            <div className="text-2xl mb-1">💸</div>
+            <div className="text-sm font-medium">Quick Transfer</div>
+        </button>
+        <button 
+            onClick={() => setCurrentPage('achievements')}
+            className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-lg text-center hover:opacity-90 transition-opacity scale-on-tap relative"
+            aria-label="Achievements"
+        >
+            <div className="text-2xl mb-1">🏆</div>
+            <div className="text-sm font-medium">Achievements</div>
+            {unlockedAchievements > 0 && (
+                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {unlockedAchievements}
+                </div>
+            )}
+        </button>
+      </div>
     </div>
   );
 };
@@ -1738,48 +1772,49 @@ const AccountManagement: React.FC<{ data: MockData; service: BankingService; onS
 };
 
 // More Menu Component
-const MoreMenu: React.FC<{ onNavigate: (page: string) => void }> = ({ onNavigate }) => {
-  const menuItems = [
-    { key: 'settings', label: 'Settings', icon: Settings, description: 'App preferences and security' },
-    { key: 'account', label: 'Account Management', icon: User, description: 'View and edit account details' },
+const More = ({ setCurrentPage }) => {
+  const moreOptions = [
+    { name: 'settings', label: 'Settings', icon: '⚙️', description: 'App preferences and security' },
+    { name: 'account', label: 'Account', icon: '👤', description: 'Personal information and account details' },
+    { name: 'achievements', label: 'Achievements', icon: '🏆', description: 'View your banking milestones and rewards' },
   ];
 
   return (
-    <div className="p-4 space-y-6 animate-in fade-in duration-300">
-      <Card>
-        <CardHeader>
-          <CardTitle>More Options</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {menuItems.map(item => (
-              <Button
-                key={item.key}
-                variant="ghost"
-                className="w-full justify-start h-auto p-4"
-                onClick={() => onNavigate(item.key)}
-              >
-                <div className="flex items-center gap-3 w-full">
-                  <item.icon className="text-blue-600" size={20} />
-                  <div className="text-left">
-                    <div className="font-medium">{item.label}</div>
-                    <div className="text-sm text-gray-500">{item.description}</div>
+    <div className="fade-in p-4">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">More Options</h2>
+      <div className="space-y-3">
+        {moreOptions.map((option) => (
+          <button
+              key={option.name}
+              onClick={() => setCurrentPage(option.name)}
+              className="w-full p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-all duration-200 scale-on-tap text-left"
+              aria-label={option.label}
+          >
+              <div className="flex items-center space-x-3">
+                  <div className="text-2xl">{option.icon}</div>
+                  <div className="flex-1">
+                      <div className="font-medium text-gray-900">{option.label}</div>
+                      <div className="text-sm text-gray-500">{option.description}</div>
                   </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={16} />
-                </div>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+                  <div className="text-gray-400">›</div>
+              </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
 
+// Achievements Component
+const Achievements = ({ mockData, setMockData, showNotificationMessage }) => {
+  // Component will be defined in separate file
+  return <div>Achievements component placeholder</div>;
+};
+
 // Main Banking App Component
-const BankingApp: React.FC = () => {
+const BankingApp = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
-  const [data, setData] = useState<MockData>(initialMockData);
+  const [mockData, setMockData] = useState(initialMockData);
   const [isLoading, setIsLoading] = useState(true);
   const serviceRef = useRef(new BankingService());
   const { toast } = useToast();
@@ -1789,7 +1824,7 @@ const BankingApp: React.FC = () => {
     const loadData = async () => {
       try {
         const loadedData = await serviceRef.current.getData();
-        setData(loadedData);
+        setMockData(loadedData);
       } catch (error) {
         toast({
           title: "Error",
@@ -1805,7 +1840,7 @@ const BankingApp: React.FC = () => {
 
   // Apply theme changes
   useEffect(() => {
-    if (data.settings.darkMode) {
+    if (mockData.settings.darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
@@ -1813,13 +1848,13 @@ const BankingApp: React.FC = () => {
     
     // Apply font size
     const root = document.documentElement;
-    root.style.fontSize = data.settings.fontSize === 'large' ? '18px' : 
-                         data.settings.fontSize === 'small' ? '14px' : '16px';
-  }, [data.settings]);
+    root.style.fontSize = mockData.settings.fontSize === 'large' ? '18px' : 
+                         mockData.settings.fontSize === 'small' ? '14px' : '16px';
+  }, [mockData.settings]);
 
   const refreshData = async () => {
     const newData = await serviceRef.current.getData();
-    setData(newData);
+    setMockData(newData);
   };
 
   const showSuccess = (message: string) => {
@@ -1840,27 +1875,29 @@ const BankingApp: React.FC = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard data={data} service={serviceRef.current} onRefresh={() => setCurrentPage('history')} />;
+        return <Dashboard mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} setCurrentPage={setCurrentPage} />;
       case 'p2p':
-        return <P2PTransfer data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+        return <P2PTransfer data={mockData} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'business':
-        return <BusinessPayments data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+        return <BusinessPayments data={mockData} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'laisee':
-        return <DigitalLaisee data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+        return <DigitalLaisee data={mockData} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'transfer':
         return <Transfer service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'history':
-        return <TransactionHistory data={data} />;
+        return <TransactionHistory data={mockData} />;
       case 'bills':
-        return <BillPay data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+        return <BillPay data={mockData} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'more':
-        return <MoreMenu onNavigate={setCurrentPage} />;
+        return <More setCurrentPage={setCurrentPage} />;
       case 'settings':
-        return <AppSettings data={data} service={serviceRef.current} onUpdate={refreshData} />;
+        return <AppSettings data={mockData} service={serviceRef.current} onUpdate={refreshData} />;
       case 'account':
-        return <AccountManagement data={data} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+        return <AccountManagement data={mockData} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
+      case 'achievements':
+        return <Achievements mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} />;
       default:
-        return <Dashboard data={data} service={serviceRef.current} onRefresh={() => setCurrentPage('history')} />;
+        return <Dashboard mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} setCurrentPage={setCurrentPage} />;
     }
   };
 
@@ -1875,17 +1912,17 @@ const BankingApp: React.FC = () => {
     );
   }
 
-  // Enhanced navigation with P2P and business features
-  const navigation = [
-    { key: 'dashboard', label: 'Home', icon: Home },
-    { key: 'p2p', label: 'P2P', icon: Send },
-    { key: 'business', label: 'Pay', icon: QrCode },
-    { key: 'laisee', label: 'Laisee', icon: Gift },
-    { key: 'more', label: 'More', icon: Settings },
+  // Navigation configuration - Updated to include achievements
+  const bottomNav = [
+    { name: 'dashboard', label: 'Home', icon: '🏠', ariaLabel: 'Go to Dashboard' },
+    { name: 'transfer', label: 'Transfer', icon: '💸', ariaLabel: 'Transfer Money' },
+    { name: 'history', label: 'History', icon: '📋', ariaLabel: 'Transaction History' },
+    { name: 'bills', label: 'Bills', icon: '💳', ariaLabel: 'Pay Bills' },
+    { name: 'more', label: 'More', icon: '⚙️', ariaLabel: 'More Options' }
   ];
 
   return (
-    <div className={`min-h-screen ${data.settings.darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen ${mockData.settings.darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
       {/* Enhanced Header */}
       <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 shadow-lg sticky top-0 z-10">
         <div className="max-w-md mx-auto flex items-center justify-between">
@@ -1900,7 +1937,7 @@ const BankingApp: React.FC = () => {
               <Bell size={16} />
             </Button>
             <div className="text-sm opacity-90">
-              Hi, {data.user.name.split(' ')[0]}
+              Hi, {mockData.user.name.split(' ')[0]}
             </div>
           </div>
         </div>
@@ -1915,21 +1952,21 @@ const BankingApp: React.FC = () => {
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg backdrop-blur-lg bg-white/95" 
            role="navigation" aria-label="Main navigation">
         <div className="max-w-md mx-auto flex">
-          {navigation.map((item) => (
+          {bottomNav.map((item) => (
             <button
-              key={item.key}
-              onClick={() => setCurrentPage(item.key)}
+              key={item.name}
+              onClick={() => setCurrentPage(item.name)}
               className={`flex-1 p-3 text-center transition-all duration-200 ${
-                currentPage === item.key || 
-                (currentPage === 'settings' && item.key === 'more') || 
-                (currentPage === 'account' && item.key === 'more')
+                currentPage === item.name || 
+                (currentPage === 'settings' && item.name === 'more') || 
+                (currentPage === 'account' && item.name === 'more')
                   ? 'text-blue-600 bg-blue-50 transform scale-105' 
                   : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'
               }`}
               aria-label={`Navigate to ${item.label}`}
               style={{ minHeight: '60px', minWidth: '44px' }}
             >
-              <item.icon className="mx-auto mb-1" size={20} />
+              <div className="text-2xl mb-1">{item.icon}</div>
               <div className="text-xs font-medium">{item.label}</div>
             </button>
           ))}
