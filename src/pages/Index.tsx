@@ -31,12 +31,50 @@ import {
 import { toast } from 'sonner';
 import Achievements from '../components/Achievements';
 
+interface Transaction {
+  id: number;
+  type: 'send' | 'receive';
+  amount: number;
+  from?: string;
+  to?: string;
+  date: string;
+  method: string;
+  message?: string;
+}
+
+interface MockDataType {
+  balance: number;
+  savings: number;
+  monthlySpending: number;
+  recentTransactions: Transaction[];
+  friends: Array<{
+    id: number;
+    name: string;
+    avatar: string;
+    status: string;
+  }>;
+  redEnvelopes: Array<{
+    id: number;
+    amount: number;
+    from: string;
+    message: string;
+    date: string;
+  }>;
+  autoTopUp: boolean;
+  privacySettings: {
+    transactionVisibility: string;
+    profileVisible: boolean;
+  };
+  totalAchievementPoints?: number;
+}
+
 const BankingApp = () => {
   const [currentView, setCurrentView] = useState('dashboard');
-  const [mockData, setMockData] = useState({
+  const [mockData, setMockData] = useState<MockDataType>({
     balance: 15420.50,
     savings: 8750.00,
     monthlySpending: 3240.80,
+    totalAchievementPoints: 0,
     recentTransactions: [
       { id: 1, type: 'receive', amount: 250.00, from: 'John Doe', date: '2024-06-03', method: 'P2P' },
       { id: 2, type: 'send', amount: 45.80, to: 'Coffee Shop', date: '2024-06-03', method: 'PayCode' },
@@ -62,11 +100,11 @@ const BankingApp = () => {
   });
 
   const [balanceVisible, setBalanceVisible] = useState(true);
-  const [selectedFriend, setSelectedFriend] = useState(null);
+  const [selectedFriend, setSelectedFriend] = useState<any>(null);
   const [sendAmount, setSendAmount] = useState('');
   const [requestAmount, setRequestAmount] = useState('');
   const [splitAmount, setSplitAmount] = useState('');
-  const [selectedSplitFriends, setSelectedSplitFriends] = useState([]);
+  const [selectedSplitFriends, setSelectedSplitFriends] = useState<any[]>([]);
   const [payCodeAmount, setPayCodeAmount] = useState('');
   const [topUpAmount, setTopUpAmount] = useState('');
   const [isScanning, setIsScanning] = useState(false);
@@ -76,12 +114,12 @@ const BankingApp = () => {
     { id: 3, message: 'New red envelope received', type: 'success', time: '2 hours ago' }
   ]);
 
-  const showNotificationMessage = (message, type = 'success') => {
-    toast[type](message);
+  const showNotificationMessage = (message: string, type = 'success') => {
+    toast[type as keyof typeof toast](message);
   };
 
-  const processP2PPayment = (type, amount, friend, message = '') => {
-    const transaction = {
+  const processP2PPayment = (type: string, amount: string, friend: any, message = '') => {
+    const transaction: Transaction = {
       id: Date.now(),
       type: type === 'send' ? 'send' : 'receive',
       amount: parseFloat(amount),
@@ -138,7 +176,7 @@ const BankingApp = () => {
 
   const handlePayCodePayment = () => {
     if (payCodeAmount) {
-      const transaction = {
+      const transaction: Transaction = {
         id: Date.now(),
         type: 'send',
         amount: parseFloat(payCodeAmount),
@@ -161,7 +199,7 @@ const BankingApp = () => {
 
   const handleTopUp = () => {
     if (topUpAmount) {
-      const transaction = {
+      const transaction: Transaction = {
         id: Date.now(),
         type: 'receive',
         amount: parseFloat(topUpAmount),
@@ -191,9 +229,9 @@ const BankingApp = () => {
     }, 2000);
   };
 
-  const sendRedEnvelope = (amount, message, recipients) => {
+  const sendRedEnvelope = (amount: string, message: string, recipients: any[]) => {
     recipients.forEach(friend => {
-      const transaction = {
+      const transaction: Transaction = {
         id: Date.now() + Math.random(),
         type: 'send',
         amount: parseFloat(amount),
@@ -213,7 +251,7 @@ const BankingApp = () => {
     showNotificationMessage(`Sent red envelope to ${recipients.length} friends`, 'success');
   };
 
-  const Dashboard = ({ service }) => (
+  const Dashboard = ({ service }: { service: any }) => (
     <div className="fade-in p-4">
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white mb-6">
         <div className="flex items-center justify-between mb-4">
