@@ -43,6 +43,7 @@ import {
   Lock,
   Globe
 } from 'lucide-react';
+import Achievements from '@/components/Achievements';
 
 // Mock data and types
 interface Transaction {
@@ -435,12 +436,16 @@ class BankingService {
 }
 
 // Dashboard Component
-const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentPage }) => {
+const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentPage, service }) => {
   const [showBalance, setShowBalance] = useState(mockData.settings.showBalance);
   const totalBalance = mockData.accounts.reduce((sum, acc) => sum + acc.balance, 0);
   const recentTransactions = mockData.transactions.slice(0, 5);
 
   const unlockedAchievements = mockData.achievements?.filter(a => a.unlocked && !a.claimed).length || 0;
+
+  const handleViewAllTransactions = () => {
+    setCurrentPage('history');
+  };
 
   return (
     <div className="fade-in p-4 space-y-6">
@@ -481,7 +486,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
 
       {/* Enhanced Quick Actions */}
       <div className="grid grid-cols-4 gap-3">
-        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105" onClick={() => setCurrentPage('p2p')}>
           <CardContent className="p-4 text-center">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <Send className="text-blue-600" size={20} />
@@ -490,7 +495,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105" onClick={() => setCurrentPage('p2p')}>
           <CardContent className="p-4 text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <ArrowDownLeft className="text-green-600" size={20} />
@@ -499,7 +504,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105" onClick={() => setCurrentPage('business')}>
           <CardContent className="p-4 text-center">
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <QrCode className="text-purple-600" size={20} />
@@ -508,7 +513,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105">
+        <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105" onClick={() => setCurrentPage('p2p')}>
           <CardContent className="p-4 text-center">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-2">
               <Users className="text-red-600" size={20} />
@@ -563,7 +568,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
       </Card>
 
       {/* Spending Summary */}
-      {Object.keys(service.getSpendingByCategory()).length > 0 && (
+      {service && Object.keys(service.getSpendingByCategory()).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -576,7 +581,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
               {Object.entries(service.getSpendingByCategory()).slice(0, 4).map(([category, amount]) => (
                 <div key={category} className="flex justify-between items-center">
                   <span className="text-sm font-medium">{category}</span>
-                  <span className="text-sm text-gray-600">${amount.toFixed(2)}</span>
+                  <span className="text-sm text-gray-600">${(amount as number).toFixed(2)}</span>
                 </div>
               ))}
             </div>
@@ -593,7 +598,7 @@ const Dashboard = ({ mockData, setMockData, showNotificationMessage, setCurrentP
                 <History className="text-blue-600" size={20} />
                 Recent Transactions
               </span>
-              <Button variant="ghost" size="sm" onClick={onRefresh}>
+              <Button variant="ghost" size="sm" onClick={handleViewAllTransactions}>
                 View All
               </Button>
             </CardTitle>
@@ -1875,7 +1880,7 @@ const BankingApp = () => {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} setCurrentPage={setCurrentPage} />;
+        return <Dashboard mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} setCurrentPage={setCurrentPage} service={serviceRef.current} />;
       case 'p2p':
         return <P2PTransfer data={mockData} service={serviceRef.current} onSuccess={showSuccess} onError={showError} />;
       case 'business':
@@ -1897,7 +1902,7 @@ const BankingApp = () => {
       case 'achievements':
         return <Achievements mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} />;
       default:
-        return <Dashboard mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} setCurrentPage={setCurrentPage} />;
+        return <Dashboard mockData={mockData} setMockData={setMockData} showNotificationMessage={showSuccess} setCurrentPage={setCurrentPage} service={serviceRef.current} />;
     }
   };
 
